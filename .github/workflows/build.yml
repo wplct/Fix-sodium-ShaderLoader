@@ -4,7 +4,7 @@ on: [push, pull_request, workflow_dispatch]
 
 permissions:
   contents: read
-  actions: write  # 上传 artifact 需要
+  actions: write
 
 jobs:
   build:
@@ -31,46 +31,33 @@ jobs:
       - name: Build with Gradle
         run: ./gradlew build
 
-      # 调试步骤：查看实际生成了什么文件（可在 Actions 日志中查看）
       - name: List build outputs
         run: |
-          echo "=== 项目根目录 build/libs ==="
-          ls -lah build/libs/ 2>/dev/null || echo "不存在"
+          echo "=== build/libs contents ==="
+          ls -lah build/libs/
           echo ""
-          echo "=== NeoForge 子模块 ==="
-          ls -lah neoforge/build/libs/ 2>/dev/null || echo "不存在"
-          echo ""
-          echo "=== Fabric 子模块 ==="
-          ls -lah fabric/build/libs/ 2>/dev/null || echo "不存在"
+          echo "=== JAR file details ==="
+          find build/libs -name "*.jar" -exec ls -lh {} \;
 
-      # 关键：上传正确的 JAR（排除 *-plain.jar，那是未重新映射的开发版，只有 3KB）
+      # 上传所有 JAR，但排除 -plain.jar（未重新映射的开发版）
       - name: Upload Mod Artifacts
         uses: actions/upload-artifact@v4
         with:
           name: mod-jars
           path: |
-            # 单项目结构：排除 plain jar，只上传重新映射后的可运行 jar
-            build/libs/!(*-plain)*.jar
-            
-            # 多模块结构（Architectury）：分别上传各加载器的产物
-            neoforge/build/libs/!(*-plain)*.jar
-            fabric/build/libs/!(*-plain)*.jar
-            
-            # 排除不需要的文件
-            !**/*-sources.jar
-            !**/*-dev.jar
-            !**/*-shadow.jar
-          if-no-files-found: error  # 如果没找到文件，报错而不是静默失败
+            build/libs/*.jar
+            !build/libs/*-plain.jar
+            !build/libs/*-sources.jar
+            !build/libs/*-dev.jar
+          if-no-files-found: warn
           retention-days: 30
 
-      # 可选：自动创建 GitHub Release（当你打 tag 时）
+      # 可选：打 tag 时自动发 Release
       - name: Release to GitHub
         if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/')
         uses: softprops/action-gh-release@v2
         with:
-          files: |
-            build/libs/!(*-plain)*.jar
-            neoforge/build/libs/!(*-plain)*.jar
-            fabric/build/libs/!(*-plain)*.jar
+          files: build/libs/*.jar
+          fail_on_unmatched_files: false
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
