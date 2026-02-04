@@ -21,10 +21,17 @@ jobs:
       - name: Setup Gradle
         uses: gradle/actions/setup-gradle@v4
 
-      # This is needed to be able to run ./gradlew below
-      # You can run `git update-index --chmod +x gradlew` then remove this step.
       - name: Make Gradle wrapper executable
         run: chmod +x ./gradlew
 
       - name: Build with Gradle
         run: ./gradlew build
+
+      # 新增：上传 JAR 产物
+      - name: Upload JAR artifacts
+        uses: actions/upload-artifact@v4
+        if: always()  # 即使构建失败也尝试上传已生成的文件（可选）
+        with:
+          name: jar-files  # 产物名称，下载时显示
+          path: build/libs/*.jar  # JAR 文件路径（Gradle 默认输出目录）
+          retention-days: 30  # 保留天数（可选，默认 90 天）
